@@ -17,18 +17,36 @@ enum Command {
 
 enum KeyMap {
     static func command(for press: KeyPress) -> Command? {
-        let mods = press.modifiers
-        let cmd = mods.contains(.command)
-        let opt = mods.contains(.option)
-        let shift = mods.contains(.shift)
-
-        // Collect candidate unicode scalars from BOTH the resolved key and the
-        // typed characters — physical keys (e.g. Backspace) don't always report
-        // the same scalar as the matching KeyEquivalent constant.
-        let scalars: Set<UInt32> = Set(
+        let m = press.modifiers
+        // Candidate scalars from BOTH the resolved key and typed characters —
+        // physical keys (e.g. Backspace) don't always report the same scalar.
+        let scalars = Set(
             [press.key.character.unicodeScalars.first?.value,
              press.characters.unicodeScalars.first?.value].compactMap { $0 }
         )
+        return resolve(scalars: scalars,
+                       command: m.contains(.command),
+                       option: m.contains(.option),
+                       shift: m.contains(.shift),
+                       chars: press.characters.lowercased())
+    }
+
+    static func command(for event: NSEvent) -> Command? {
+        let m = event.modifierFlags
+        let scalars = Set(
+            [event.charactersIgnoringModifiers?.unicodeScalars.first?.value,
+             event.characters?.unicodeScalars.first?.value].compactMap { $0 }
+        )
+        return resolve(scalars: scalars,
+                       command: m.contains(.command),
+                       option: m.contains(.option),
+                       shift: m.contains(.shift),
+                       chars: (event.charactersIgnoringModifiers ?? "").lowercased())
+    }
+
+    /// Shared resolution used by both the SwiftUI and AppKit key paths.
+    static func resolve(scalars: Set<UInt32>, command cmd: Bool, option opt: Bool,
+                        shift: Bool, chars: String) -> Command? {
         func key(_ v: UInt32) -> Bool { scalars.contains(v) }
 
         // Function keys (NSFxFunctionKey private-use range).
@@ -59,7 +77,7 @@ enum KeyMap {
 
         // Command-modified shortcuts.
         if cmd {
-            switch press.characters.lowercased() {
+            switch chars {
             case "c": return .clipboardCopy
             case "v": return .clipboardPaste
             case "t": return .newTab

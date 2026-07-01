@@ -5,27 +5,22 @@ import AppKit
 
 struct ContentView: View {
     @Bindable var app: AppModel
-    @FocusState private var focus: PaneSide?
+    @State private var keyboard = KeyboardMonitor()
 
     var body: some View {
         VStack(spacing: 0) {
             ToolbarView(app: app)
             Divider()
             HStack(spacing: 0) {
-                PaneView(app: app, column: app.leftColumn, side: .left, focus: $focus)
+                PaneView(app: app, column: app.leftColumn, side: .left)
                 Divider()
-                PaneView(app: app, column: app.rightColumn, side: .right, focus: $focus)
+                PaneView(app: app, column: app.rightColumn, side: .right)
             }
             Divider()
             StatusBar(app: app)
         }
-        .onAppear { focus = .left; app.active = .left }
-        .onChange(of: focus) { _, newValue in
-            if let v = newValue, app.active != v { app.active = v }
-        }
-        .onChange(of: app.active) { _, newValue in
-            if focus != newValue { focus = newValue }
-        }
+        .onAppear { keyboard.start(app: app) }
+        .onDisappear { keyboard.stop() }
         .sheet(item: $app.pendingPrompt) { req in
             PromptSheet(request: req)
         }
@@ -38,7 +33,6 @@ struct PaneView: View {
     let app: AppModel
     let column: PaneColumn
     let side: PaneSide
-    let focus: FocusState<PaneSide?>.Binding
 
     private var isActive: Bool { app.active == side }
     private var pane: PaneModel { column.current }
@@ -109,41 +103,7 @@ struct PaneView: View {
                 .fill(isActive ? Color.accentColor : Color.clear)
                 .frame(height: 2)
         }
-        .focusable(true)
-        .focused(focus, equals: side)
-        .focusEffectDisabled()
-        .onKeyPress { press in handleKey(press) }
-        .onChange(of: pane.editingURL) { _, newValue in
-            // When inline editing ends, return keyboard focus to this pane.
-            if newValue == nil, isActive { focus.wrappedValue = side }
-        }
-    }
-
-    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        // Backspace edits the quick-filter when one is active (BS 0x08 or DEL 0x7F).
-        let scalars = Set(
-            [press.key.character.unicodeScalars.first?.value,
-             press.characters.unicodeScalars.first?.value].compactMap { $0 }
-        )
-        let isBackspace = scalars.contains(0x08) || scalars.contains(0x7F)
-        if isBackspace, press.modifiers.isEmpty, !pane.filterText.isEmpty {
-            pane.backspaceFilter()
-            return .handled
-        }
-        if let cmd = KeyMap.command(for: press) {
-            CommandRunner.run(cmd, app: app)
-            return .handled
-        }
-        // Type-to-filter: a printable character with no command/control/option modifier.
-        if press.modifiers.isDisjoint(with: [.command, .control, .option]) {
-            let s = press.characters
-            if let sc = s.unicodeScalars.first,
-               sc.value >= 0x20, sc.value != 0x7F, !(0xF700...0xF8FF).contains(sc.value) {
-                pane.appendFilter(s)
-                return .handled
-            }
-        }
-        return .ignored
+        // Keyboard is handled app-wide by KeyboardMonitor (routes to app.activePane).
     }
 }
 
@@ -436,6 +396,7 @@ struct PromptSheet: View {
     let request: AppModel.PromptRequest
     @Environment(\.dismiss) private var dismiss
     @State private var text: String = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -443,6 +404,7 @@ struct PromptSheet: View {
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 340)
+                .focused($focused)
                 .onSubmit(commit)
             HStack {
                 Spacer()
@@ -451,7 +413,7 @@ struct PromptSheet: View {
             }
         }
         .padding(20)
-        .onAppear { text = request.initial }
+        .onAppear { text = request.initial; focused = true }
     }
 
     private func commit() {
