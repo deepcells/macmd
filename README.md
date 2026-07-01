@@ -38,3 +38,4 @@ swift test
 ```
 
 Requires macOS 14+ and a Swift 6 toolchain.
+# macmd
