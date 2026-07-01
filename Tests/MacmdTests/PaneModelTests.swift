@@ -133,29 +133,38 @@ final class PaneModelTests: SandboxTestCase {
         XCTAssertEqual(pane.actionTargets, [pane.entries[1].url])
     }
 
-    func test_filter_prefixMatchNarrowsAndRestores() {
+    func test_filter_substringNarrowsAndRestores() {
         makeFile("apple.txt")
         makeFile("apricot.txt")
         makeFile("banana.txt")
         let pane = PaneModel(directory: root)
         XCTAssertEqual(pane.entries.count, 3)
 
-        pane.appendFilter("ap") // prefix "ap"
+        pane.appendFilter("ap") // substring "ap"
         XCTAssertEqual(Set(names(pane.entries)), ["apple.txt", "apricot.txt"])
 
-        pane.backspaceFilter() // "a" — prefix, banana excluded (starts with b)
-        XCTAssertEqual(Set(names(pane.entries)), ["apple.txt", "apricot.txt"])
+        pane.backspaceFilter() // "a" — all three contain "a"
+        XCTAssertEqual(pane.entries.count, 3)
 
         pane.clearFilter()
         XCTAssertEqual(pane.entries.count, 3)
     }
 
-    func test_filter_isPrefixNotSubstring() {
+    func test_filter_matchesMiddleNotJustPrefix() {
         makeFile("readme.txt")
         makeFile("me.txt")
         let pane = PaneModel(directory: root)
-        pane.appendFilter("me") // only "me.txt" starts with "me"; "readme.txt" contains but doesn't start
-        XCTAssertEqual(names(pane.entries), ["me.txt"])
+        pane.appendFilter("me") // "readme.txt" matches in the middle; "me.txt" at start
+        XCTAssertEqual(Set(names(pane.entries)), ["readme.txt", "me.txt"])
+    }
+
+    func test_filter_matchesFoldersInMiddle() {
+        makeDir("my-project")
+        makeDir("other")
+        makeFile("readme.txt")
+        let pane = PaneModel(directory: root)
+        pane.appendFilter("pro") // folder "my-project" contains "pro" in the middle
+        XCTAssertEqual(names(pane.entries), ["my-project"])
     }
 
     func test_toggleHidden() {

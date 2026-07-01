@@ -58,9 +58,10 @@ final class PaneModel {
         let keepURL = keep ?? cursorEntry?.url
         var list = allEntries
         if !filterText.isEmpty {
-            // Prefix match (type-ahead), matching Total Commander / Finder convention.
+            // Substring match anywhere in the name (case-insensitive) — matches the
+            // middle, not just the prefix. Applies to folders and files alike.
             let f = filterText.lowercased()
-            list = list.filter { $0.name.lowercased().hasPrefix(f) }
+            list = list.filter { $0.name.lowercased().contains(f) }
         }
         list.sort { a, b in
             if a.isDirectory != b.isDirectory { return a.isDirectory } // dirs first (OFM style)
