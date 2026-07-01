@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Icon/icon-1024.png" width="128" alt="Macmd app icon">
+</p>
+
 # Macmd
 
 A native macOS **dual-pane file manager** in the spirit of Total Commander —
