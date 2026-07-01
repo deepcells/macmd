@@ -70,7 +70,6 @@ struct PaneView: View {
                                 onCommit: { pane.commitRename(to: $0) },
                                 onCancel: { pane.cancelRename() }
                             )
-                            .id(idx)
                             .onTapGesture(count: 2) {
                                 app.active = side
                                 pane.cursorIndex = idx
@@ -90,7 +89,7 @@ struct PaneView: View {
                     .id("\(pane.id.uuidString):\(currentDir.path)") // rebuild on tab switch or directory change
                 }
                 .onChange(of: cursor) { _, i in
-                    proxy.scrollTo(i, anchor: .center)
+                    if items.indices.contains(i) { proxy.scrollTo(items[i].id, anchor: .center) }
                 }
             }
             if !filter.isEmpty {
